@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.naruprof.twin</groupId>
+        <artifactId>naruprof-eclipseDitto</artifactId>
+        <version>1.0.0</version>
+    </parent>
+    <artifactId>twin-it</artifactId>
+    <name>naruprof-eclipseDitto :: real-Ditto integration tests</name>
+    <description>
+        JUnit tests against the pinned real Ditto stack (deploy/ditto). Skipped unless the
+        "ditto-it" profile is active:  mvn -Pditto-it verify
+    </description>
+    <dependencies>
+        <dependency><groupId>org.naruprof.twin</groupId><artifactId>twin-app</artifactId><scope>test</scope></dependency>
+        <dependency><groupId>org.naruprof.twin</groupId><artifactId>twin-fixture-naru</artifactId><scope>test</scope></dependency>
+        <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-test</artifactId><scope>test</scope></dependency>
+    </dependencies>
+    <properties>
+        <skipDittoIt>true</skipDittoIt>
+    </properties>
+    <profiles>
+        <profile>
+            <id>ditto-it</id>
+            <properties><skipDittoIt>false</skipDittoIt></properties>
+        </profile>
+    </profiles>
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration><skip>true</skip></configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <configuration>
+                    <skipITs>${skipDittoIt}</skipITs>
+                    <trimStackTrace>false</trimStackTrace>
+                    <systemPropertyVariables>
+                        <ditto.it.apiBase>${env.DITTO_API_BASE}</ditto.it.apiBase>
+                        <ditto.it.composeDir>${project.basedir}/../deploy/ditto</ditto.it.composeDir>
+                    </systemPropertyVariables>
+                </configuration>
+                <executions>
+                    <execution><goals><goal>integration-test</goal><goal>verify</goal></goals></execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

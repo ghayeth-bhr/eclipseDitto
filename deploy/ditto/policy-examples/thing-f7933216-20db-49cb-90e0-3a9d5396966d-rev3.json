@@ -1,0 +1,14 @@
+{
+  "policyId": "naruprof.learning:policy-f7933216-20db-49cb-90e0-3a9d5396966d",
+  "features": {
+    "learning": {
+      "properties": {
+        "sequence": "3",
+        "teachingSessions": "1",
+        "practiceSessions": "1",
+        "propositions": "2",
+        "reasoningChains": "1"
+      }
+    }
+  }
+}

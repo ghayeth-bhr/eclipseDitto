@@ -1,0 +1,64 @@
+# naruprof-eclipseDitto. Every secret comes from the environment (protected launcher config).
+spring:
+  application.name: naruprof-eclipseDitto
+  main.banner-mode: off
+  datasource:
+    # private consumer bookkeeping: cursor, lifecycle status, lease. Ditto owns its own persistence.
+    url: jdbc:h2:file:${twin.data-dir}/checkpoint/twin-checkpoint;DB_CLOSE_ON_EXIT=FALSE
+    username: twin
+    password: ""
+  jpa:
+    open-in-view: false
+    hibernate.ddl-auto: update
+  lifecycle.timeout-per-shutdown-phase: 20s
+  h2.console.enabled: false
+
+server:
+  address: ${TWIN_BIND_ADDRESS:127.0.0.1}
+  port: ${TWIN_PORT:8083}
+  shutdown: graceful
+  error.whitelabel.enabled: false
+  error.include-message: never
+  error.include-stacktrace: never
+
+twin:
+  profile-id: ${NARUPROF_PROFILE_ID:}
+  data-dir: ${TWIN_DATA_DIR:./data}
+  inbound:
+    vertx-token: ${VERTX_TO_TWIN_TOKEN:}
+    maintenance-token: ${TWIN_MAINTENANCE_TOKEN:}
+  naru:
+    target: ${NARU_GRPC_TARGET:127.0.0.1:9092}
+    token: ${TWIN_TO_NARU_TOKEN:}
+    snapshot-timeout: ${TWIN_NARU_SNAPSHOT_TIMEOUT:5s}
+    watch-max-duration: ${TWIN_NARU_WATCH_MAX_DURATION:10m}
+    keep-alive-time: 30s
+  ditto:
+    api-base: ${DITTO_API_BASE:http://127.0.0.1:8090/api/2}
+    subject-issuer: ${TWIN_DITTO_SUBJECT_ISSUER:nginx}
+    connect-timeout: ${TWIN_DITTO_CONNECT_TIMEOUT:2s}
+    request-timeout: ${TWIN_DITTO_REQUEST_TIMEOUT:5s}
+    operator:
+      user: ${TWIN_DITTO_OPERATOR_USER:naruprof-twin-operator}
+      password: ${TWIN_DITTO_OPERATOR_PASSWORD:}
+    projector:
+      user: ${TWIN_DITTO_PROJECTOR_USER:naruprof-twin-projector}
+      password: ${TWIN_DITTO_PROJECTOR_PASSWORD:}
+    reader:
+      user: ${TWIN_DITTO_READER_USER:naruprof-twin-reader}
+      password: ${TWIN_DITTO_READER_PASSWORD:}
+    breaker:
+      failure-rate-threshold: 50
+      sliding-window-size: 10
+      minimum-calls: 5
+      open-duration: 10s
+  projection:
+    writer-id: ${TWIN_WRITER_ID:}
+    max-write-attempts: 5
+    queue-capacity: 64
+    backoff-base: 500ms
+    backoff-cap: 30s
+    actionable-failure-delay: 60s
+    lease-ttl: 30s
+    reconcile-interval: ${TWIN_RECONCILE_INTERVAL:5m}
+    drain-timeout: 10s

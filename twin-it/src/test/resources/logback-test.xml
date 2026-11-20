@@ -1,0 +1,8 @@
+<configuration>
+  <appender name="C" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder><pattern>%d{HH:mm:ss.SSS} %-5level [%thread] %logger{20} profile=%X{profile:-} op=%X{op:-} - %msg%n</pattern></encoder>
+  </appender>
+  <logger name="org.naruprof" level="INFO"/>
+  <logger name="naruprof.twin.diagnostics" level="INFO"/>
+  <root level="WARN"><appender-ref ref="C"/></root>
+</configuration>

@@ -1,0 +1,6 @@
+<configuration>
+  <appender name="C" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder><pattern>%d{HH:mm:ss.SSS} %-5level [%thread] %logger{24} %X{op} - %msg%n</pattern></encoder>
+  </appender>
+  <root level="WARN"><appender-ref ref="C"/></root>
+</configuration>

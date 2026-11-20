@@ -1,0 +1,22 @@
+{
+  "entries": {
+    "naruprof-operator": {
+      "subjects": { "nginx:naruprof-twin-operator": { "type": "naruprof twin operator" } },
+      "resources": { "policy:/": { "grant": ["READ", "WRITE"], "revoke": [] } },
+      "importable": "never"
+    },
+    "naruprof-projector": {
+      "subjects": { "nginx:naruprof-twin-projector": { "type": "naruprof twin projector" } },
+      "resources": {
+        "thing:/": { "grant": ["READ", "WRITE"], "revoke": [] },
+        "policy:/": { "grant": ["READ"], "revoke": [] }
+      },
+      "importable": "never"
+    },
+    "naruprof-reader": {
+      "subjects": { "nginx:naruprof-twin-reader": { "type": "naruprof twin reader" } },
+      "resources": { "thing:/features/learning/properties": { "grant": ["READ"], "revoke": [] } },
+      "importable": "never"
+    }
+  }
+}

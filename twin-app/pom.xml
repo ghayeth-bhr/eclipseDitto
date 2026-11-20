@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.naruprof.twin</groupId>
+        <artifactId>naruprof-eclipseDitto</artifactId>
+        <version>1.0.0</version>
+    </parent>
+    <artifactId>twin-app</artifactId>
+    <name>naruprof-eclipseDitto :: app (Spring Boot composition root)</name>
+    <dependencies>
+        <dependency><groupId>org.naruprof.twin</groupId><artifactId>twin-service-impl</artifactId></dependency>
+        <dependency><groupId>org.naruprof.twin</groupId><artifactId>twin-ws-rest</artifactId></dependency>
+        <dependency><groupId>org.naruprof.twin</groupId><artifactId>twin-dal-ditto-http</artifactId></dependency>
+        <dependency><groupId>org.naruprof.twin</groupId><artifactId>twin-dal-jpa</artifactId></dependency>
+        <dependency><groupId>org.naruprof.twin</groupId><artifactId>twin-dal-naru-grpc</artifactId></dependency>
+        <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-web</artifactId></dependency>
+        <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-data-jpa</artifactId></dependency>
+        <dependency><groupId>com.h2database</groupId><artifactId>h2</artifactId></dependency>
+        <dependency><groupId>io.grpc</groupId><artifactId>grpc-netty-shaded</artifactId></dependency>
+        <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-test</artifactId><scope>test</scope></dependency>
+        <dependency><groupId>org.naruprof.twin</groupId><artifactId>twin-fixture-naru</artifactId><scope>test</scope></dependency>
+    </dependencies>
+    <build>
+        <finalName>naruprof-twin</finalName>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration><mainClass>org.naruprof.twin.app.TwinApplication</mainClass><classifier>exec</classifier></configuration>
+                <executions><execution><goals><goal>repackage</goal></goals></execution></executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.5.6</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>org.naruprof.twin</groupId>
+    <artifactId>naruprof-eclipseDitto</artifactId>
+    <version>1.0.0</version>
+    <packaging>pom</packaging>
+    <name>naruprof-eclipseDitto :: learning digital twin (Pyramid module)</name>
+
+    <!--
+      Pyramid anatomy of the "twin" module:
+        twin-infra                shared types (ids, uint64 revision, summary)            no deps
+        twin-service-api          published facade (LearningTwinModule)                  -> infra
+        twin-dal-api              semantic DAL ports (twin store, policy store, checkpoint,
+                                  lease, NARU learning source)                           -> infra
+        twin-dal-ditto-http       Ditto persisted-twin HTTP adapter                       -> dal-api
+        twin-dal-jpa              checkpoint / lease JPA adapter                          -> dal-api
+        twin-contract-naru-grpc   generated client stubs of NARU's published proto       (generated)
+        twin-dal-naru-grpc        NARU gRPC adapter implementing the source port          -> dal-api, contract
+        twin-service-impl         provisioning / projection / read services               -> service-api, dal-api
+        twin-ws-rest              incoming Servlet REST adapter                           -> service-api
+        twin-app                  Spring Boot composition root (only place wiring vendors)
+        twin-fixture-naru         deterministic fake NARU gRPC publisher                  -> contract
+        twin-architecture-tests   ArchUnit rules
+        twin-it                   real-Ditto integration tests (profile ditto-it)
+    -->
+    <modules>
+        <module>twin-infra</module>
+        <module>twin-service-api</module>
+        <module>twin-dal-api</module>
+        <module>twin-dal-ditto-http</module>
+        <module>twin-dal-jpa</module>
+        <module>twin-contract-naru-grpc</module>
+        <module>twin-dal-naru-grpc</module>
+        <module>twin-service-impl</module>
+        <module>twin-ws-rest</module>
+        <module>twin-fixture-naru</module>
+        <module>twin-app</module>
+        <module>twin-architecture-tests</module>
+        <module>twin-it</module>
+    </modules>
+
+    <properties>
+        <java.version>21</java.version>
+        <maven.compiler.release>21</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <grpc.version>1.68.1</grpc.version>
+        <protobuf.version>3.25.5</protobuf.version>
+        <resilience4j.version>2.2.0</resilience4j.version>
+        <archunit.version>1.3.0</archunit.version>
+        <!-- pinned Ditto release exercised by twin-it; see deploy/ditto/versions.properties -->
+        <ditto.release>3.9.8</ditto.release>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>io.grpc</groupId>
+                <artifactId>grpc-bom</artifactId>
+                <version>${grpc.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.google.protobuf</groupId>
+                <artifactId>protobuf-java</artifactId>
+                <version>${protobuf.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.resilience4j</groupId>
+                <artifactId>resilience4j-circuitbreaker</artifactId>
+                <version>${resilience4j.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.tngtech.archunit</groupId>
+                <artifactId>archunit-junit5</artifactId>
+                <version>${archunit.version}</version>
+            </dependency>
+            <dependency><groupId>org.naruprof.twin</groupId><artifactId>twin-infra</artifactId><version>${project.version}</version></dependency>
+            <dependency><groupId>org.naruprof.twin</groupId><artifactId>twin-service-api</artifactId><version>${project.version}</version></dependency>
+            <dependency><groupId>org.naruprof.twin</groupId><artifactId>twin-dal-api</artifactId><version>${project.version}</version></dependency>
+            <dependency><groupId>org.naruprof.twin</groupId><artifactId>twin-dal-ditto-http</artifactId><version>${project.version}</version></dependency>
+            <dependency><groupId>org.naruprof.twin</groupId><artifactId>twin-dal-jpa</artifactId><version>${project.version}</version></dependency>
+            <dependency><groupId>org.naruprof.twin</groupId><artifactId>twin-contract-naru-grpc</artifactId><version>${project.version}</version></dependency>
+            <dependency><groupId>org.naruprof.twin</groupId><artifactId>twin-dal-naru-grpc</artifactId><version>${project.version}</version></dependency>
+            <dependency><groupId>org.naruprof.twin</groupId><artifactId>twin-service-impl</artifactId><version>${project.version}</version></dependency>
+            <dependency><groupId>org.naruprof.twin</groupId><artifactId>twin-ws-rest</artifactId><version>${project.version}</version></dependency>
+            <dependency><groupId>org.naruprof.twin</groupId><artifactId>twin-fixture-naru</artifactId><version>${project.version}</version></dependency>
+            <dependency><groupId>org.naruprof.twin</groupId><artifactId>twin-app</artifactId><version>${project.version}</version></dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <configuration>
+                        <trimStackTrace>false</trimStackTrace>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+</project>

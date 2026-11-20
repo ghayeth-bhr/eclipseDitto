@@ -1,0 +1,85 @@
+# naruprof-eclipseDitto -> Kong agent: service readiness + local deployment manifest.
+# The Kong agent owns integrated startup, port assignment, secret distribution, shutdown and the
+# version manifest. Everything below is what the integrated launcher needs from this module.
+module: naruprof-eclipseDitto
+version: 1.0.0
+contract: integration-v1 (learning_projection_v1.proto sha256 d390fc11d195e1bb6bd38988b69668c7200a2c7745325baad74bdb34b32ad290)
+
+processes:
+  - name: ditto-stack
+    kind: container-compose
+    owner: naruprof-eclipseDitto (vendor binaries with their own logging/config)
+    workdir: deploy/ditto
+    start: docker compose -p naruprof-ditto up -d
+    stop: docker compose -p naruprof-ditto stop          # keeps the twin store volume
+    destroy: docker compose -p naruprof-ditto down -v    # disposable fixtures only; the twin is rebuildable
+    pins: deploy/ditto/versions.properties               # Ditto 3.9.8 images by digest, mongo 7.0, nginx 1.27
+    exposes:
+      - name: DITTO_API_BASE
+        value: http://127.0.0.1:${DITTO_HTTP_PORT:-8090}/api/2   # loopback only; consumed ONLY by the twin service
+    private: true            # never route /api/2 (or any Ditto path) through Kong; reserve it at the edge
+    readiness:
+      check: "GET ${DITTO_API_BASE}/whoami with the reader credential -> 200"
+      measured_fresh_seconds: 27     # empty volume, images cached; Windows 11, Docker Desktop 28.2.2, 20 CPUs
+      measured_cold_pull_seconds: unmeasured-variable  # ~2.1 GB of images on first pull
+    resources: { memory_limit_total: ~1.95GiB, measured_rss_idle: ~880MiB }
+    storage:
+      - volume naruprof_ditto_mongo  (Ditto-owned persistence: Things, Policies, journals)
+
+  - name: twin
+    kind: java
+    start: java -jar twin-app/target/naruprof-twin-exec.jar
+    standalone_start: scripts/run-twin.sh (or scripts/run-twin.ps1) with deploy/twin.env.example (test-only)
+    java: ">= 21"
+    depends_on:
+      hard: []                        # starts and stays live without Ditto or NARU
+      soft: [ditto-stack, naru]       # readiness waits for them
+    listen: ${TWIN_BIND_ADDRESS:-127.0.0.1}:${TWIN_PORT:-8083}   # TWIN_URL
+    environment:
+      required:
+        NARUPROF_PROFILE_ID: same opaque UUID as NARU and Vert.x (persisted per installation)
+        VERTX_TO_TWIN_TOKEN: per-launch secret shared ONLY with Vert.x (>= 16 chars)
+        TWIN_TO_NARU_TOKEN: per-launch secret shared ONLY with NARU (gRPC "authorization: Bearer")
+        NARU_GRPC_TARGET: host:port of NARU LearningProjection (default 127.0.0.1:9092)
+        DITTO_API_BASE: from ditto-stack
+        TWIN_DITTO_OPERATOR_PASSWORD: Ditto operator credential (htpasswd)
+        TWIN_DITTO_PROJECTOR_PASSWORD: Ditto projector credential (htpasswd)
+        TWIN_DITTO_READER_PASSWORD: Ditto reader credential (htpasswd)
+      optional:
+        TWIN_MAINTENANCE_TOKEN: enables /internal/v1/projection/** and /internal/v1/maintenance/** (operator only)
+        TWIN_DATA_DIR: checkpoint store + logs (default ./data)
+        TWIN_PORT, TWIN_BIND_ADDRESS, TWIN_WRITER_ID, TWIN_RECONCILE_INTERVAL
+    health:
+      live: GET /internal/health/live  -> 200 while the process runs
+      ready: GET /internal/health/ready -> 200 iff an authenticated native Ditto read succeeds AND the
+             projection is initialized (a confirmed live revision or a confirmed tombstone); else 503
+    launcher_policy: >
+      Open the application once renderer, Vert.x and NARU are ready. Do NOT block on twin readiness:
+      the twin may catch up later; Vert.x relays its 503 {"code":"twin_unavailable"} meanwhile.
+    measured:   # 2026-11-20, Windows 11, JDK 21.0.6, OneDrive-synced folder, 20 CPUs
+      spring_started_seconds: 8.2            # "Started TwinApplication in 8.161 seconds"
+      process_start_to_live_seconds: 9.4
+      process_start_to_ready_seconds: 10.1   # first boot: snapshot, policy+thing created, watch open
+      restart_after_checkpoint_wipe_ready_seconds: 9.7
+    storage:
+      - ${TWIN_DATA_DIR}/checkpoint/twin-checkpoint.mv.db  (H2: cursor, lifecycle status, lease; rebuildable)
+      - ${TWIN_DATA_DIR}/logs/naruprof-twin.log            (Logback, rolling, 7 days)
+    shutdown: SIGTERM -> graceful (web server drains, projector drains in-flight apply <= 10s, lease released)
+
+routes:
+  internal:
+    - GET /internal/v1/profiles/{profileId}/summary   # Authorization: Bearer VERTX_TO_TWIN_TOKEN
+      responses:
+        200: '{"profileId","sequence","teachingSessions","practiceSessions","propositions","reasoningChains"} (unsigned decimal strings, applied revision)'
+        404: '{"code":"twin_missing"}       confirmed deletion (tombstone)'
+        503: '{"code":"twin_unavailable"}   bootstrapping or Ditto/store unavailable'
+        401: '{"code":"unauthorized"}       missing/invalid credential'
+        403: '{"code":"forbidden"}          wrong profile or wrong role credential'
+  public_mapping_owned_by_vertx: GET /api/naruprof/twin/summary -> twin GET /internal/v1/profiles/${NARUPROF_PROFILE_ID}/summary (preserve status + body)
+  never_public: ["/internal/**", "/api/2/**", "Ditto gateway", "Ditto nginx front", "maintenance endpoints"]
+
+acceptance_hooks:
+  query: scripts/query-summary.sh kong [expected_sequence]   # compares applied revision with the feed revision
+  fake_naru: scripts/run-fake-naru.sh  (gRPC 127.0.0.1:9092, control 127.0.0.1:9093: /head /commit /delete /rewind /available)
+  crash_between_write_and_checkpoint: kill -9 the twin after a native write; on restart the checkpoint advances once (RecoveryIT)
+  ditto_outage: docker compose -p naruprof-ditto stop gateway ; ... ; start gateway (DittoOutageIT)

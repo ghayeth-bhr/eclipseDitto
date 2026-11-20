@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.naruprof.twin</groupId>
+        <artifactId>naruprof-eclipseDitto</artifactId>
+        <version>1.0.0</version>
+    </parent>
+    <artifactId>twin-fixture-naru</artifactId>
+    <name>naruprof-eclipseDitto :: fixture-naru (fake NARU gRPC publisher)</name>
+    <dependencies>
+        <dependency><groupId>org.naruprof.twin</groupId><artifactId>twin-contract-naru-grpc</artifactId></dependency>
+        <dependency><groupId>io.grpc</groupId><artifactId>grpc-netty-shaded</artifactId></dependency>
+        <dependency><groupId>io.grpc</groupId><artifactId>grpc-inprocess</artifactId></dependency>
+        <dependency><groupId>org.slf4j</groupId><artifactId>slf4j-api</artifactId></dependency>
+        <dependency><groupId>ch.qos.logback</groupId><artifactId>logback-classic</artifactId></dependency>
+        <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><scope>test</scope></dependency>
+        <dependency><groupId>org.assertj</groupId><artifactId>assertj-core</artifactId><scope>test</scope></dependency>
+    </dependencies>
+    <build><plugins><plugin><groupId>org.springframework.boot</groupId><artifactId>spring-boot-maven-plugin</artifactId>
+        <configuration><mainClass>org.naruprof.twin.fixture.naru.FakeNaruMain</mainClass><classifier>exec</classifier></configuration>
+        <executions><execution><goals><goal>repackage</goal></goals></execution></executions></plugin></plugins></build>
+</project>

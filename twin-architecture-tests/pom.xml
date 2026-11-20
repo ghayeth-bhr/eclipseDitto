@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.naruprof.twin</groupId>
+        <artifactId>naruprof-eclipseDitto</artifactId>
+        <version>1.0.0</version>
+    </parent>
+    <artifactId>twin-architecture-tests</artifactId>
+    <name>naruprof-eclipseDitto :: architecture tests (ArchUnit)</name>
+    <dependencies>
+        <dependency><groupId>org.naruprof.twin</groupId><artifactId>twin-app</artifactId><scope>test</scope></dependency>
+        <dependency><groupId>org.naruprof.twin</groupId><artifactId>twin-fixture-naru</artifactId><scope>test</scope></dependency>
+        <dependency><groupId>com.tngtech.archunit</groupId><artifactId>archunit-junit5</artifactId><scope>test</scope></dependency>
+        <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><scope>test</scope></dependency>
+    </dependencies>
+</project>

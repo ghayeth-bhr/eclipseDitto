@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Logs carry profile id (pseudonymous), revisions, operation ids, durations, retries, lag and
+     failure classes. Never credentials, tokens or source record content. -->
+<configuration>
+  <springProperty scope="context" name="DATA_DIR" source="twin.data-dir" defaultValue="./data"/>
+  <property name="PATTERN" value="%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [%thread] %logger{36} profile=%X{profile:-} op=%X{op:-} - %msg%n"/>
+
+  <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder><pattern>${PATTERN}</pattern></encoder>
+  </appender>
+
+  <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${DATA_DIR}/logs/naruprof-twin.log</file>
+    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+      <fileNamePattern>${DATA_DIR}/logs/naruprof-twin.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+      <maxFileSize>20MB</maxFileSize>
+      <maxHistory>7</maxHistory>
+      <totalSizeCap>200MB</totalSizeCap>
+    </rollingPolicy>
+    <encoder><pattern>${PATTERN}</pattern></encoder>
+  </appender>
+
+  <logger name="org.naruprof" level="INFO"/>
+  <logger name="naruprof.twin.diagnostics" level="INFO"/>
+  <logger name="org.hibernate" level="WARN"/>
+  <logger name="io.grpc" level="WARN"/>
+
+  <root level="INFO">
+    <appender-ref ref="CONSOLE"/>
+    <appender-ref ref="FILE"/>
+  </root>
+</configuration>
