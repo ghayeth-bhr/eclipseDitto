@@ -1,0 +1,65 @@
+# naruprof-eclipseDitto — INTEGRATED stack (real NARU over the tailnet). This file never starts
+# or falls back to a fake NARU:
+#   Ditto 3.9.8 (mongodb, policies, things, gateway, nginx front)  - from deploy/ditto
+#   twin      : the naruprof-eclipseDitto service (private summary API on 8083)
+#
+# Required in .env or the environment (see .env.tailscale.example; scripts/integrated-up.ps1 checks):
+#   NARU_GRPC_TARGET=<NARU_TS_IP>:9092     NARUPROF_PROFILE_ID=<UUID installed by NARU>
+#   VERTX_TO_TWIN_TOKEN, TWIN_TO_NARU_TOKEN, TWIN_MAINTENANCE_TOKEN (agreed fixture values, private)
+#   TWIN_PUBLISH_ADDRESS=<this host's Tailscale IP>   (or 127.0.0.1 + TWIN_PUBLISH_PORT=18083 + portproxy)
+# A blank NARU_GRPC_TARGET / token / profile makes the twin refuse to start (no silent defaults).
+#
+#   docker compose up -d --build                    integrated run (first run builds the Java image)
+#   docker compose up -d --force-recreate twin      apply configuration changes, keeps volumes
+#   docker compose ps                               wait until "twin" is (healthy)
+#
+# Demo/fixture mode is a separate, explicit overlay that adds the fake NARU and the test console:
+#   docker compose -f docker-compose.yml -f docker-compose.fake.yml up -d --build
+#
+# Isolated stacks (fresh volumes, e.g. when switching from fake history to the real NARU):
+#   $env:TWIN_STACK_ID='naruprof-real'; docker compose -p naruprof-real up -d
+# Never use "down -v" for reconnect tests. Native Ditto (nginx :8090) is always loopback-only.
+
+name: naruprof-ditto
+
+include:
+  - deploy/ditto/docker-compose.yml
+
+services:
+  twin:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile
+      target: twin
+    image: naruprof/twin:1.0.0
+    restart: unless-stopped
+    depends_on:
+      nginx: { condition: service_started }
+    env_file: deploy/twin.env.example  # local-only native Ditto identities (test-only htpasswd values)
+    environment:
+      TWIN_BIND_ADDRESS: 0.0.0.0       # container-internal; publication below decides reachability
+      TWIN_SOURCE_MODE: integrated
+      # Deliberately no defaults: blank values override the example env file and fail startup.
+      NARU_GRPC_TARGET: ${NARU_GRPC_TARGET:-}
+      NARUPROF_PROFILE_ID: ${NARUPROF_PROFILE_ID:-}
+      TWIN_TO_NARU_TOKEN: ${TWIN_TO_NARU_TOKEN:-}
+      VERTX_TO_TWIN_TOKEN: ${VERTX_TO_TWIN_TOKEN:-}
+      TWIN_MAINTENANCE_TOKEN: ${TWIN_MAINTENANCE_TOKEN:-}
+      DITTO_API_BASE: http://nginx/api/2   # private native Ditto on the compose network
+      TWIN_DATA_DIR: /data
+    volumes:
+      - twin-data:/data
+    ports:
+      # facade only; TWIN_PUBLISH_ADDRESS = Windows Tailscale IP, or 127.0.0.1 with port 18083
+      - "${TWIN_PUBLISH_ADDRESS:-127.0.0.1}:${TWIN_PUBLISH_PORT:-8083}:8083"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1:8083/internal/health/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 60
+      start_period: 30s
+    deploy: { resources: { limits: { memory: 512m } } }
+
+volumes:
+  twin-data:
+    name: ${TWIN_STACK_ID:-naruprof}_twin_data

@@ -11,12 +11,12 @@ public record TwinProperties(String profileId, String dataDir, Inbound inbound, 
     public record Inbound(String vertxToken, String maintenanceToken) {
     }
 
-    public record Naru(String target, String token, Duration snapshotTimeout, Duration watchMaxDuration,
+    public record Naru(String mode, String target, String token, Duration snapshotTimeout, Duration watchMaxDuration,
                        Duration keepAliveTime) {
     }
 
     public record Ditto(String apiBase, String subjectIssuer, Duration connectTimeout, Duration requestTimeout,
-                        Credential operator, Credential projector, Credential reader, Breaker breaker) {
+                        Duration readTimeout, Credential operator, Credential projector, Credential reader, Breaker breaker) {
     }
 
     public record Credential(String user, String password) {

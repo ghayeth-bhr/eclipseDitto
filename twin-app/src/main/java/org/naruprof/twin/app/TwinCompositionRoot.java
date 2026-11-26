@@ -36,6 +36,8 @@ import org.naruprof.twin.service.impl.ReconcileService;
 import org.naruprof.twin.service.impl.SummaryReadService;
 import org.naruprof.twin.service.impl.TwinPolicyTemplate;
 import org.naruprof.twin.ws.rest.ServiceTokenFilter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -45,6 +47,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.net.InetAddress;
 import java.time.Clock;
+import java.time.Duration;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -55,6 +58,8 @@ import java.util.concurrent.TimeUnit;
  */
 @Configuration(proxyBeanMethods = false)
 public class TwinCompositionRoot {
+
+    private static final Logger log = LoggerFactory.getLogger(TwinCompositionRoot.class);
 
     @Bean
     Clock clock() {
@@ -126,7 +131,8 @@ public class TwinCompositionRoot {
 
     @Bean
     TwinReadModel twinReadModel(TwinProperties p, DittoHttpTransport http, ObjectMapper json) {
-        return new DittoReadModel(http, identity("reader", p.ditto().reader()), json);
+        Duration readTimeout = p.ditto().readTimeout() == null ? Duration.ofMillis(1500) : p.ditto().readTimeout();
+        return new DittoReadModel(http, identity("reader", p.ditto().reader()), json, readTimeout);
     }
 
     // ------------------------------------------------------------------ JPA bookkeeping
@@ -151,7 +157,10 @@ public class TwinCompositionRoot {
 
     @Bean(destroyMethod = "")
     ManagedChannel naruChannel(TwinProperties p) {
-        return NettyChannelBuilder.forTarget(p.naru().target())
+        NaruSourceTarget.Mode mode = NaruSourceTarget.mode(p.naru().mode());
+        String target = NaruSourceTarget.resolve(mode, p.naru().target());
+        log.info("NARU source mode={} target={}", mode.name().toLowerCase(), target);
+        return NettyChannelBuilder.forTarget(target)
                 .usePlaintext() // loopback/private network; per-peer bearer credential in metadata
                 .keepAliveTime(p.naru().keepAliveTime().toMillis(), TimeUnit.MILLISECONDS)
                 .keepAliveWithoutCalls(false)

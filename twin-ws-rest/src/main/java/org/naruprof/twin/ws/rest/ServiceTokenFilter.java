@@ -16,11 +16,16 @@ import java.security.MessageDigest;
  *   <li>{@code /internal/v1/profiles/**}: the Vert.x service credential (VERTX_TO_TWIN_TOKEN);</li>
  *   <li>{@code /internal/v1/projection/**}, {@code /internal/v1/maintenance/**}: the operator
  *       maintenance credential (disabled when not configured);</li>
- *   <li>{@code /internal/health/**}: open, loopback/private listener only.</li>
+ *   <li>exactly {@code GET /internal/health/live} and {@code GET /internal/health/ready}: open for
+ *       launcher probes (private listener only). There is no blanket {@code /internal/**} exemption:
+ *       any other method or path below {@code /internal/health/} is not exempt.</li>
  * </ul>
  * Anything else is 404. Constant-time comparison; tokens are never logged.
  */
 public class ServiceTokenFilter extends OncePerRequestFilter {
+
+    static final String HEALTH_LIVE = "/internal/health/live";
+    static final String HEALTH_READY = "/internal/health/ready";
 
     private final byte[] vertxToken;
     private final byte[] maintenanceToken;
@@ -37,9 +42,15 @@ public class ServiceTokenFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain chain)
             throws ServletException, IOException {
-        String path = req.getRequestURI().substring(req.getContextPath().length());
-        if (path.startsWith("/internal/health/")) {
-            chain.doFilter(req, res);
+        // container-normalized, decoded path (no "..", ";params" or context path tricks)
+        String path = req.getServletPath() + (req.getPathInfo() == null ? "" : req.getPathInfo());
+        if (HEALTH_LIVE.equals(path) || HEALTH_READY.equals(path)) {
+            if ("GET".equals(req.getMethod())) {
+                chain.doFilter(req, res);
+            } else {
+                res.setHeader("Allow", "GET");
+                write(res, 405, "{\"code\":\"method_not_allowed\"}");
+            }
             return;
         }
         byte[] expected;

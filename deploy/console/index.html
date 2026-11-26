@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Twin Test Console</title>
+<style>
+  :root {
+    --ink: #13202E; --paper: #F5F3EE; --card: #FBFAF7; --line: #D8D2C6; --body: #3D4A5A; --muted: #6B7684;
+    --accent: #E07A2E; --ok: #1F7A4D; --okbg: #E3F2E9; --warn: #9A6200; --warnbg: #FBF0D9; --bad: #B23A2E; --badbg: #F8E4E1;
+    --mono: ui-monospace, "Cascadia Code", Consolas, "Courier New", monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.5 system-ui, "Segoe UI", Arial, sans-serif; }
+  header { background: var(--ink); color: var(--paper); padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  header h1 { margin: 0; font-size: 20px; font-weight: 650; }
+  header p { margin: 2px 0 0; color: #BFCCD8; font-size: 13px; }
+  main { max-width: 1180px; margin: 0 auto; padding: 20px 16px 48px; display: grid; gap: 20px; }
+  h2 { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin: 0 0 10px; }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .stat { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: #fff; }
+  .stat .lbl { font-size: 12px; color: var(--muted); }
+  .stat .val { font-size: 24px; font-weight: 700; font-family: var(--mono); }
+  .stat .sub { font-size: 12px; color: var(--body); }
+  .sync { margin-top: 12px; padding: 10px 12px; border-radius: 8px; font-weight: 600; }
+  button { font: inherit; border: 1px solid var(--ink); background: var(--ink); color: var(--paper); border-radius: 8px; padding: 6px 14px; cursor: pointer; }
+  button.ghost { background: transparent; color: var(--ink); }
+  button.danger { background: var(--bad); border-color: var(--bad); }
+  button:disabled { opacity: .5; cursor: default; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  label.num { display: flex; flex-direction: column; font-size: 12px; color: var(--muted); }
+  input[type=number] { width: 90px; font: inherit; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; }
+  .actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+  .actions .panel h3 { margin: 0 0 8px; font-size: 15px; }
+  .hint { font-size: 13px; color: var(--body); margin: 6px 0 0; }
+  .tests { display: grid; gap: 12px; }
+  .test { background: var(--card); border: 1px solid var(--line); border-left: 5px solid var(--line); border-radius: 10px; padding: 12px 16px; }
+  .test.ok { border-left-color: var(--ok); } .test.warn { border-left-color: var(--warn); } .test.bad { border-left-color: var(--bad); }
+  .test .head { display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .test h3 { margin: 0; font-size: 15px; }
+  .test .why { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
+  .req { font-family: var(--mono); font-size: 12.5px; color: var(--body); background: #F0EDE6; border-radius: 6px; padding: 6px 8px; margin-top: 8px; overflow-x: auto; white-space: nowrap; }
+  .badge { font-family: var(--mono); font-weight: 700; font-size: 13px; padding: 2px 8px; border-radius: 6px; background: #EEE; }
+  .verdict { margin-top: 8px; padding: 8px 10px; border-radius: 6px; font-size: 14px; }
+  .ok .verdict { background: var(--okbg); color: var(--ok); } .warn .verdict { background: var(--warnbg); color: var(--warn); } .bad .verdict { background: var(--badbg); color: var(--bad); }
+  pre { margin: 8px 0 0; font-family: var(--mono); font-size: 12.5px; background: var(--ink); color: #E8EEF4; padding: 10px 12px; border-radius: 6px; overflow-x: auto; max-height: 260px; }
+  table.counts { border-collapse: collapse; margin-top: 8px; font-size: 14px; }
+  table.counts td { padding: 2px 14px 2px 0; } table.counts td:last-child { font-family: var(--mono); font-weight: 700; }
+  .ok-txt { color: var(--ok); } .bad-txt { color: var(--bad); } .warn-txt { color: var(--warn); }
+  #log { font-family: var(--mono); font-size: 12.5px; max-height: 160px; overflow-y: auto; margin: 0; padding: 0; list-style: none; }
+  #log li { padding: 2px 0; border-bottom: 1px dashed var(--line); }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>naruprof-eclipseDitto · Test Console</h1>
+    <p>Fake NARU → twin service → Ditto 3.9.8 · profile <span class="mono" id="pid"></span> · test-only credentials</p>
+  </div>
+  <div class="row">
+    <label class="row" style="color:#BFCCD8"><input type="checkbox" id="auto" checked> auto-refresh 2 s</label>
+    <button id="runAll" style="background:var(--accent);border-color:var(--accent);color:var(--ink)">Run all tests</button>
+  </div>
+</header>
+
+<main>
+  <section class="panel">
+    <h2>Live state</h2>
+    <div class="stats">
+      <div class="stat"><div class="lbl">NARU feed head</div><div class="val" id="sHead">–</div><div class="sub">latest committed revision</div></div>
+      <div class="stat"><div class="lbl">Twin applied</div><div class="val" id="sApplied">–</div><div class="sub">revision served by the summary</div></div>
+      <div class="stat"><div class="lbl">Lag</div><div class="val" id="sLag">–</div><div class="sub">feed − applied</div></div>
+      <div class="stat"><div class="lbl">Twin readiness</div><div class="val" id="sReady" style="font-size:18px">–</div><div class="sub" id="sReadyDetail"></div></div>
+      <div class="stat"><div class="lbl">Consumer</div><div class="val" id="sConsumer" style="font-size:16px">–</div><div class="sub" id="sCheckpoint"></div></div>
+    </div>
+    <div class="sync" id="sync">Loading…</div>
+  </section>
+
+  <section>
+    <h2>Drive the source (fake NARU)</h2>
+    <div class="actions">
+      <div class="panel">
+        <h3>Commit a lesson</h3>
+        <div class="row">
+          <label class="num">teaching<input type="number" id="cT" min="0" value="2"></label>
+          <label class="num">practice<input type="number" id="cP" min="0" value="1"></label>
+          <label class="num">propositions<input type="number" id="cPr" min="0" value="2"></label>
+          <label class="num">chains<input type="number" id="cC" min="0" value="1"></label>
+          <button id="commit">Commit</button>
+        </div>
+        <p class="hint">NARU commits a full new summary (sequence + 1). Watch the twin pick it up and the lag return to 0.</p>
+      </div>
+      <div class="panel">
+        <h3>Source faults</h3>
+        <div class="row">
+          <button class="ghost" id="naruDown">NARU unavailable</button>
+          <button class="ghost" id="naruUp">NARU available</button>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <label class="num">rewind to<input type="number" id="rw" min="0" value="2"></label>
+          <button class="ghost" id="rewind">Rewind NARU</button>
+          <button class="ghost" id="accept">Accept restore</button>
+          <button class="danger" id="del">Delete profile</button>
+        </div>
+        <p class="hint" id="delHint">Rewind simulates a NARU backup restore (the twin raises a restore conflict and never rolls back). Delete retires the profile; reset afterwards with <span class="mono">docker compose down -v</span>.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="row" style="justify-content:space-between"><h2 style="margin:0">API tests</h2><span id="score" class="hint"></span></div>
+    <div class="tests" id="tests" style="margin-top:10px"></div>
+  </section>
+
+  <section class="panel">
+    <h2>Activity</h2>
+    <ul id="log"></ul>
+  </section>
+</main>
+
+<script src="/config.js"></script>
+<script>
+const CFG = window.TWIN_CFG || {};
+const P = CFG.profile || "f7933216-20db-49cb-90e0-3a9d5396966d";
+const OTHER = "00000000-0000-4000-8000-000000000000";
+const CRED = {
+  reader: "Basic " + btoa("naruprof-twin-reader:test-only-reader-secret"),
+  vertx: "Bearer " + (CFG.vertx || "test-only-vertx-to-twin-token-0001"),
+  maint: "Bearer " + (CFG.maint || "test-only-twin-maintenance-token-01")
+};
+document.getElementById("pid").textContent = P;
+
+let feedHead = null;
+
+async function call(method, url, auth, body) {
+  const headers = {};
+  if (auth) headers["Authorization"] = auth;
+  if (body !== undefined) headers["Content-Type"] = "application/json";
+  const t0 = performance.now();
+  try {
+    const r = await fetch(url, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), cache: "no-store" });
+    const text = await r.text();
+    let json = null; try { json = JSON.parse(text); } catch (e) {}
+    return { status: r.status, text, json, ms: Math.round(performance.now() - t0) };
+  } catch (e) {
+    return { status: 0, text: String(e), json: null, ms: Math.round(performance.now() - t0) };
+  }
+}
+
+function log(msg) {
+  const li = document.createElement("li");
+  li.textContent = new Date().toLocaleTimeString() + "  " + msg;
+  const ul = document.getElementById("log");
+  ul.prepend(li);
+  while (ul.children.length > 60) ul.lastChild.remove();
+}
+
+const esc = s => String(s).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+
+function countsTable(j) {
+  return `<table class="counts">
+    <tr><td>sequence (NARU revision)</td><td>${esc(j.sequence)}</td></tr>
+    <tr><td>teaching sessions</td><td>${esc(j.teachingSessions)}</td></tr>
+    <tr><td>practice sessions</td><td>${esc(j.practiceSessions)}</td></tr>
+    <tr><td>propositions</td><td>${esc(j.propositions)}</td></tr>
+    <tr><td>reasoning chains</td><td>${esc(j.reasoningChains)}</td></tr></table>`;
+}
+
+// ------------------------------------------------------------------ tests
+
+const TESTS = [
+  {
+    id: "whoami", title: "1 · Ditto is reachable and authenticates",
+    why: "The reader identity logs in through Ditto's nginx front.",
+    method: "GET", url: "/ditto/api/2/whoami", auth: "reader", show: "Authorization: Basic (twin reader)",
+    judge: r => r.status === 200
+      ? ["ok", `Ditto answered. Authenticated as <b>${esc(r.json?.defaultSubject)}</b>.`]
+      : r.status === 401 ? ["bad", "401: Ditto rejected the reader credential (check nginx.htpasswd)."]
+      : ["bad", `Ditto not reachable (status ${r.status}). Is the gateway running? <span class="mono">docker compose ps</span>`]
+  },
+  {
+    id: "ready", title: "2 · Twin service readiness",
+    why: "Ready = authenticated Ditto read works AND the projection is initialized.",
+    method: "GET", url: "/twin/internal/health/ready", show: "no auth (private health endpoint)",
+    judge: r => r.status === 200 ? ["ok", "Twin is ready: Ditto read authenticated and projection initialized."]
+      : r.status === 503 ? ["warn", `Not ready yet: ${esc(r.json?.detail || "unknown")}. Native read ${r.json?.nativeReadAuthenticated ? "OK" : "failing"}, projection ${r.json?.projectionInitialized ? "initialized" : "not initialized"}.`]
+      : ["bad", `Twin not reachable (status ${r.status}).`]
+  },
+  {
+    id: "summary", title: "3 · Summary, as Vert.x calls it",
+    why: "The module's main API. Must return the six fields of the applied revision.",
+    method: "GET", url: `/twin/internal/v1/profiles/${P}/summary`, auth: "vertx", show: "Authorization: Bearer VERTX_TO_TWIN_TOKEN",
+    judge: r => {
+      if (r.status === 200) {
+        const seq = Number(r.json.sequence);
+        let sync = "";
+        if (feedHead !== null) sync = seq === feedHead ? ` <b>In sync</b> with the NARU feed (revision ${feedHead}).`
+          : ` <b>Lagging</b>: feed is at ${feedHead}, twin at ${seq} (catching up).`;
+        return [feedHead === null || seq === feedHead ? "ok" : "warn", `200: the twin serves revision ${esc(r.json.sequence)}.${sync}` + countsTable(r.json)];
+      }
+      if (r.status === 404) return ["warn", "404 twin_missing: the profile was deleted (tombstone confirmed). Expected after “Delete profile”."];
+      if (r.status === 503) return ["warn", "503 twin_unavailable: the twin is bootstrapping or cannot read Ditto. It never invents zeros: it waits."];
+      return ["bad", `Unexpected status ${r.status}.`];
+    }
+  },
+  {
+    id: "thing", title: "4 · The raw Thing inside Ditto",
+    why: "Reads the learning feature directly from Ditto with the read-only identity.",
+    method: "GET", url: `/ditto/api/2/things/naruprof.learning:${P}/features/learning/properties`, auth: "reader", show: "Authorization: Basic (twin reader)",
+    judge: r => r.status === 200 ? ["ok", `Ditto holds <b>sequence ${esc(r.json.sequence)}</b> with exactly ${Object.keys(r.json).length} properties (no ratings, no content). This is what test 3 translates.`]
+      : r.status === 404 ? ["warn", "404: no Thing visible. Either the profile was deleted, or Ditto lost its data and the twin is rebuilding it."]
+      : ["bad", `Unexpected status ${r.status}.`]
+  },
+  {
+    id: "notoken", title: "5 · Security: no token",
+    why: "A caller without a credential must be rejected.",
+    method: "GET", url: `/twin/internal/v1/profiles/${P}/summary`, show: "no Authorization header", expect: 401,
+    judge: r => r.status === 401 ? ["ok", "401 as expected: unauthenticated callers are rejected."] : ["bad", `Expected 401, got ${r.status}: access control is broken.`]
+  },
+  {
+    id: "wrongrole", title: "6 · Security: wrong role's token",
+    why: "The maintenance token is valid, but not for the Vert.x API.",
+    method: "GET", url: `/twin/internal/v1/profiles/${P}/summary`, auth: "maint", show: "Authorization: Bearer TWIN_MAINTENANCE_TOKEN", expect: 403,
+    judge: r => r.status === 403 ? ["ok", "403 as expected: credentials are per role."] : ["bad", `Expected 403, got ${r.status}.`]
+  },
+  {
+    id: "otherprofile", title: "7 · Security: another profile",
+    why: "This installation serves exactly one profile; the URL cannot select another.",
+    method: "GET", url: `/twin/internal/v1/profiles/${OTHER}/summary`, auth: "vertx", show: "Authorization: Bearer VERTX_TO_TWIN_TOKEN", expect: 403,
+    judge: r => r.status === 403 ? ["ok", "403 as expected: the profile is bound to configuration, not to the request."] : ["bad", `Expected 403, got ${r.status}.`]
+  },
+  {
+    id: "readerwrite", title: "8 · Security: reader tries to write in Ditto",
+    why: "The read-only identity attempts to change the sequence property.",
+    method: "PUT", url: `/ditto/api/2/things/naruprof.learning:${P}/features/learning/properties/sequence`, auth: "reader", body: "999",
+    show: "Authorization: Basic (twin reader) · body \"999\"", expect: 403,
+    judge: r => r.status === 403 ? ["ok", "403 as expected: Ditto's policy makes the reader read-only."]
+      : r.status === 404 ? ["warn", "404: the Thing is not visible (deleted?), so the write could not be tested."]
+      : ["bad", `Expected 403, got ${r.status}: the reader could write!`]
+  },
+  {
+    id: "status", title: "9 · Projection status (operator view)",
+    why: "Private metrics: checkpoint, lag, consumer state, failures, circuit breaker.",
+    method: "GET", url: "/twin/internal/v1/projection/status", auth: "maint", show: "Authorization: Bearer TWIN_MAINTENANCE_TOKEN",
+    judge: r => {
+      if (r.status !== 200) return ["bad", `Status endpoint returned ${r.status}.`];
+      const j = r.json;
+      const healthy = j.consumerState === "STREAMING" && !j.lastFailureClass && j.circuitBreaker === "CLOSED";
+      return [healthy ? "ok" : "warn", `Checkpoint <b>${esc(j.checkpointStatus)}</b> at ${esc(j.appliedSequence)}, consumer <b>${esc(j.consumerState)}</b>, lag ${esc(j.replayLag ?? "–")}, circuit breaker ${esc(j.circuitBreaker)}` +
+        (j.lastFailureClass ? `, last failure <b>${esc(j.lastFailureClass)}</b>.` : ", no failure.")];
+    }
+  }
+];
+
+function renderTests() {
+  document.getElementById("tests").innerHTML = TESTS.map(t => `
+    <div class="test" id="t-${t.id}">
+      <div class="head">
+        <div><h3>${t.title}</h3><p class="why">${t.why}${t.expect ? ` <b>Expected: ${t.expect}.</b>` : ""}</p></div>
+        <div class="row"><span class="badge" id="b-${t.id}">not run</span><button data-run="${t.id}">Run</button></div>
+      </div>
+      <div class="req">${t.method} ${esc(t.url)} &nbsp;·&nbsp; ${esc(t.show)}</div>
+      <div id="o-${t.id}"></div>
+    </div>`).join("");
+  document.querySelectorAll("[data-run]").forEach(b => b.onclick = () => runTest(TESTS.find(t => t.id === b.dataset.run)));
+}
+
+async function runTest(t) {
+  const r = await call(t.method, t.url, t.auth && CRED[t.auth], t.body === undefined ? undefined : JSON.parse(t.body));
+  const [level, msg] = t.judge(r);
+  const el = document.getElementById("t-" + t.id);
+  el.className = "test " + level;
+  document.getElementById("b-" + t.id).textContent = (r.status || "ERR") + " · " + r.ms + " ms";
+  const raw = r.json ? JSON.stringify(r.json, null, 2) : (r.text || "(empty body)");
+  document.getElementById("o-" + t.id).innerHTML = `<div class="verdict">${msg}</div><pre>${esc(raw)}</pre>`;
+  log(`${t.method} ${t.url} → ${r.status} (${level})`);
+  return level;
+}
+
+document.getElementById("runAll").onclick = async () => {
+  await refresh();
+  const res = [];
+  for (const t of TESTS) res.push(await runTest(t));
+  const ok = res.filter(x => x === "ok").length;
+  document.getElementById("score").innerHTML = `<b class="${ok === res.length ? "ok-txt" : "warn-txt"}">${ok} / ${res.length} passed</b>` +
+    (ok === res.length ? "" : " · amber = expected in the current state (e.g. after a delete or during catch-up), red = a real failure");
+};
+
+// ------------------------------------------------------------------ live state
+
+async function refresh() {
+  const [head, sum, ready, st] = await Promise.all([
+    call("GET", "/naru/head"),
+    call("GET", `/twin/internal/v1/profiles/${P}/summary`, CRED.vertx),
+    call("GET", "/twin/internal/health/ready"),
+    call("GET", "/twin/internal/v1/projection/status", CRED.maint)
+  ]);
+  feedHead = head.status === 200 ? Number(head.json.sequence) : null;
+  const applied = sum.status === 200 ? Number(sum.json.sequence) : null;
+  document.getElementById("sHead").textContent = feedHead ?? "down";
+  document.getElementById("sApplied").textContent = applied ?? (sum.status === 404 ? "deleted" : sum.status === 503 ? "503" : "–");
+  document.getElementById("sLag").textContent = feedHead !== null && applied !== null ? Math.max(0, feedHead - applied) : "–";
+  document.getElementById("sReady").textContent = ready.status === 200 ? "READY" : ready.status === 503 ? "NOT READY" : "DOWN";
+  document.getElementById("sReady").className = "val " + (ready.status === 200 ? "ok-txt" : "bad-txt");
+  document.getElementById("sReadyDetail").textContent = ready.json?.detail || "";
+  document.getElementById("sConsumer").textContent = st.json?.consumerState || "–";
+  document.getElementById("sCheckpoint").textContent = st.json ? `checkpoint ${st.json.checkpointStatus}` + (st.json.lastFailureClass ? ` · ${st.json.lastFailureClass}` : "") : "";
+
+  const s = document.getElementById("sync");
+  let cls, txt;
+  if (sum.status === 404) { cls = "warn"; txt = "Profile deleted: the twin returns 404 twin_missing and Thing + Policy are removed."; }
+  else if (sum.status === 503) { cls = "warn"; txt = "Twin unavailable (503): bootstrapping or Ditto unreachable. Learning on NARU keeps working; the twin catches up when Ditto is back."; }
+  else if (applied === null) { cls = "bad"; txt = "Twin service not reachable."; }
+  else if (st.json?.checkpointStatus === "RESTORE_CONFLICT") { cls = "bad"; const back = st.json.lastSourceSequence;
+    txt = `Restore conflict: NARU’s history went back (snapshot at revision ${back ?? "?"}` +
+      (feedHead !== null && String(feedHead) !== String(back) ? `, now at ${feedHead}` : "") +
+      `) while the twin had already applied ${applied}. The twin keeps serving ${applied} and will not roll back on its own: click “Accept restore” to adopt NARU’s current state.`; }
+  else if (feedHead === null) { cls = "warn"; txt = `NARU is down; the twin keeps serving its last applied revision (${applied}).`; }
+  else if (applied === feedHead) { cls = "ok"; txt = `In sync: the twin serves revision ${applied}, the same as the NARU feed.`; }
+  else { cls = "warn"; txt = `Catching up: feed at ${feedHead}, twin at ${applied}.`; }
+  s.className = "sync " + ({ ok: "ok-txt", warn: "warn-txt", bad: "bad-txt" }[cls]);
+  s.style.background = `var(--${cls}bg)`;
+  s.textContent = txt;
+  if (feedHead !== null && !document.activeElement?.matches?.("input")) {
+    if (sum.json?.teachingSessions) document.getElementById("cT").value = Number(sum.json.teachingSessions) + 1;
+  }
+}
+
+// ------------------------------------------------------------------ actions
+
+document.getElementById("commit").onclick = async () => {
+  const q = `teaching=${cT.value}&practice=${cP.value}&propositions=${cPr.value}&chains=${cC.value}`;
+  const r = await call("POST", "/naru/commit?" + q);
+  if (r.status !== 200) { log(`commit failed: ${r.status} ${r.text}`); return; }
+  const target = Number(r.json.sequence);
+  log(`NARU committed revision ${target} (${q.replaceAll("&", ", ")})`);
+  const t0 = performance.now();
+  for (let i = 0; i < 60; i++) {
+    const s = await call("GET", `/twin/internal/v1/profiles/${P}/summary`, CRED.vertx);
+    if (s.status === 200 && Number(s.json.sequence) >= target) {
+      log(`twin applied revision ${target} after ${Math.round(performance.now() - t0)} ms`);
+      break;
+    }
+    await new Promise(res => setTimeout(res, 250));
+  }
+  refresh();
+};
+document.getElementById("naruDown").onclick = async () => { await call("POST", "/naru/available?value=false"); log("NARU set unavailable (stream broken)"); refresh(); };
+document.getElementById("naruUp").onclick = async () => { await call("POST", "/naru/available?value=true"); log("NARU available again"); refresh(); };
+document.getElementById("rewind").onclick = async () => {
+  const r = await call("POST", "/naru/rewind?to=" + rw.value);
+  log(`NARU rewound to ${rw.value} (${r.status}). Trigger reconcile: the twin should raise RESTORE_CONFLICT.`);
+  await call("POST", `/twin/internal/v1/maintenance/profiles/${P}/reconcile`, CRED.maint);
+  refresh();
+};
+document.getElementById("accept").onclick = async () => {
+  const r = await call("POST", `/twin/internal/v1/maintenance/profiles/${P}/reconcile?acceptSourceRestore=true`, CRED.maint);
+  log(`operator accepted the NARU restore: ${r.status} ${r.json?.result || ""} (twin moved to ${r.json?.appliedSequence ?? "?"})`);
+  refresh();
+};
+let armed = false;
+document.getElementById("del").onclick = async () => {
+  const b = document.getElementById("del");
+  if (!armed) { armed = true; b.textContent = "Click again to confirm"; setTimeout(() => { armed = false; b.textContent = "Delete profile"; }, 4000); return; }
+  armed = false; b.textContent = "Delete profile";
+  const r = await call("POST", "/naru/delete");
+  log(`NARU committed the profile deletion (${r.status}). The twin removes Thing + Policy and keeps a tombstone.`);
+  setTimeout(refresh, 1500);
+};
+
+renderTests();
+refresh();
+setInterval(() => { if (document.getElementById("auto").checked) refresh(); }, 2000);
+</script>
+</body>
+</html>

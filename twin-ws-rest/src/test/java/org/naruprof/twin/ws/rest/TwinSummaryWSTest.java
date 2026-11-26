@@ -13,8 +13,10 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -87,6 +89,34 @@ class TwinSummaryWSTest {
         mvc.perform(get("/internal/health/ready")).andExpect(status().isServiceUnavailable());
         mvc.perform(get("/api/2/things/x").header("Authorization", "Bearer " + VERTX)).andExpect(status().isNotFound());
         mvc.perform(post("/internal/v1/profiles/" + P + "/summary").header("Authorization", "Bearer " + VERTX))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(content().json("{\"code\":\"method_not_allowed\"}", true));
+        mvc.perform(delete("/internal/v1/profiles/" + P + "/summary").header("Authorization", "Bearer " + VERTX))
                 .andExpect(status().isMethodNotAllowed());
+        // mutation attempts without a credential are still rejected by authentication first
+        mvc.perform(put("/internal/v1/profiles/" + P + "/summary")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void onlyExactHealthGetsAreExempt() throws Exception {
+        mvc.perform(get("/internal/health/live/")).andExpect(status().isNotFound());
+        mvc.perform(get("/internal/health/other")).andExpect(status().isNotFound());
+        mvc.perform(post("/internal/health/live")).andExpect(status().isMethodNotAllowed());
+        mvc.perform(get("/internal/v1/projection/status")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/internal/anything")).andExpect(status().isNotFound());
+        // health never authorizes a protected path reached through it
+        mvc.perform(get(url()).header("Authorization", "Bearer " + MAINT)).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void wrongProfileIsForbiddenAndInvalidIdIsBadRequestAfterAuthentication() throws Exception {
+        next.set(new SummaryResult.Invalid());
+        mvc.perform(get("/internal/v1/profiles/not-a-uuid/summary")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/internal/v1/profiles/not-a-uuid/summary").header("Authorization", "Bearer " + VERTX))
+                .andExpect(status().isBadRequest()).andExpect(content().json("{\"code\":\"invalid_profile_id\"}", true));
+        next.set(new SummaryResult.Forbidden());
+        mvc.perform(get("/internal/v1/profiles/00000000-0000-4000-8000-000000000000/summary")
+                        .header("Authorization", "Bearer " + VERTX))
+                .andExpect(status().isForbidden()).andExpect(content().json("{\"code\":\"forbidden\"}", true));
     }
 }

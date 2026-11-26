@@ -40,7 +40,8 @@ processes:
         NARUPROF_PROFILE_ID: same opaque UUID as NARU and Vert.x (persisted per installation)
         VERTX_TO_TWIN_TOKEN: per-launch secret shared ONLY with Vert.x (>= 16 chars)
         TWIN_TO_NARU_TOKEN: per-launch secret shared ONLY with NARU (gRPC "authorization: Bearer")
-        NARU_GRPC_TARGET: host:port of NARU LearningProjection (default 127.0.0.1:9092)
+        NARU_GRPC_TARGET: host:port of NARU LearningProjection (NO default; integrated mode refuses blank/loopback/fake-naru)
+        TWIN_SOURCE_MODE: integrated (default) | fake (explicit fixture mode only)
         DITTO_API_BASE: from ditto-stack
         TWIN_DITTO_OPERATOR_PASSWORD: Ditto operator credential (htpasswd)
         TWIN_DITTO_PROJECTOR_PASSWORD: Ditto projector credential (htpasswd)
@@ -49,6 +50,7 @@ processes:
         TWIN_MAINTENANCE_TOKEN: enables /internal/v1/projection/** and /internal/v1/maintenance/** (operator only)
         TWIN_DATA_DIR: checkpoint store + logs (default ./data)
         TWIN_PORT, TWIN_BIND_ADDRESS, TWIN_WRITER_ID, TWIN_RECONCILE_INTERVAL
+        TWIN_DITTO_READ_TIMEOUT: native read bound for summary/readiness (default 1500ms; Vert.x deadline is 2 s)
     health:
       live: GET /internal/health/live  -> 200 while the process runs
       ready: GET /internal/health/ready -> 200 iff an authenticated native Ditto read succeeds AND the

@@ -1,0 +1,5 @@
+# keep the build context to sources only
+**/target/
+data/
+.git/
+*.log

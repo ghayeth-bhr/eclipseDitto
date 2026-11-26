@@ -23,6 +23,8 @@ import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
+import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -108,12 +110,62 @@ class GrpcLearningSourceContractTest {
         naru.createProfile(PID);
         assertThatThrownBy(() -> client("wrong").getSnapshot(P))
                 .extracting(e -> ((SourceException) e).kind()).isEqualTo(SourceException.Kind.AUTH);
+        Collect denied = new Collect();
+        client("wrong").watch(P, U64.of(0), 4, denied); // Watch carries the same credential
+        assertThat(denied.errors).extracting(SourceException::kind).containsExactly(SourceException.Kind.AUTH);
         Collect col = new Collect();
         ok.watch(P, U64.of(9), 4, col); // ahead of head
         assertThat(col.errors).extracting(SourceException::kind).containsExactly(SourceException.Kind.OUT_OF_RANGE);
         naru.setAvailable(false);
         assertThatThrownBy(() -> ok.getSnapshot(P))
                 .extracting(e -> ((SourceException) e).kind()).isEqualTo(SourceException.Kind.TRANSIENT);
+    }
+
+    @Test
+    void bothAuthStatusesAreNonTransientAuthFailures() {
+        for (Status.Code code : new Status.Code[]{Status.Code.UNAUTHENTICATED, Status.Code.PERMISSION_DENIED}) {
+            assertThat(ProjectionStateMapper.classify(new StatusRuntimeException(Status.fromCode(code))).kind())
+                    .isEqualTo(SourceException.Kind.AUTH);
+        }
+        for (Status.Code code : new Status.Code[]{Status.Code.UNAVAILABLE, Status.Code.DEADLINE_EXCEEDED,
+                Status.Code.RESOURCE_EXHAUSTED}) {
+            assertThat(ProjectionStateMapper.classify(new StatusRuntimeException(Status.fromCode(code))).kind())
+                    .isEqualTo(SourceException.Kind.TRANSIENT);
+        }
+    }
+
+    @Test
+    void exactlyOneLowercaseAuthorizationValueIsSentOnSnapshotAndWatch() throws Exception {
+        java.util.List<java.util.List<String>> seen = new java.util.concurrent.CopyOnWriteArrayList<>();
+        io.grpc.ServerInterceptor capture = new io.grpc.ServerInterceptor() {
+            @Override
+            public <Q, R> io.grpc.ServerCall.Listener<Q> interceptCall(io.grpc.ServerCall<Q, R> call, io.grpc.Metadata h,
+                                                                       io.grpc.ServerCallHandler<Q, R> next) {
+                java.util.List<String> v = new java.util.ArrayList<>();
+                Iterable<String> all = h.getAll(BearerCallCredentials.AUTHORIZATION);
+                if (all != null) {
+                    all.forEach(v::add);
+                }
+                seen.add(v);
+                return next.startCall(call, h);
+            }
+        };
+        String name = InProcessServerBuilder.generateName();
+        Server s2 = InProcessServerBuilder.forName(name).directExecutor()
+                .addService(ServerInterceptors.intercept(naru, new BearerAuthInterceptor("test-only-twin-to-naru"), capture))
+                .build().start();
+        ManagedChannel ch2 = InProcessChannelBuilder.forName(name).directExecutor().build();
+        try {
+            naru.createProfile(PID);
+            GrpcLearningSource src = new GrpcLearningSource(ch2, new BearerCallCredentials("test-only-twin-to-naru".toCharArray()),
+                    Duration.ofSeconds(2), Duration.ofSeconds(30));
+            src.getSnapshot(P);
+            src.watch(P, U64.of(0), 4, new Collect()).close();
+            assertThat(seen).hasSize(2).allSatisfy(v -> assertThat(v).containsExactly("Bearer test-only-twin-to-naru"));
+        } finally {
+            ch2.shutdownNow().awaitTermination(5, TimeUnit.SECONDS);
+            s2.shutdownNow().awaitTermination(5, TimeUnit.SECONDS);
+        }
     }
 
     @Test

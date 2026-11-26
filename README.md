@@ -22,6 +22,9 @@ Thing after revision 3 of the contract trace (verified byte-for-byte by `Vertica
                                        "propositions":"2","reasoningChains":"1"}}}}
 ```
 
+> **Teammates consuming this module:** see [TEAM-API.md](TEAM-API.md) for the endpoints, auth,
+> responses and the Tailscale setup.
+
 ## Pyramid layout
 
 | Sub-project | Layer | Contents |
@@ -51,7 +54,37 @@ mvn -B -Pditto-it install            # + real-Ditto integration tests (stops/sta
                                      #   disable that drill with -Dditto.it.allowStop=false)
 ```
 
-## Run
+## Run everything with Docker (one command)
+
+Needs only Docker Desktop: no local Java or Maven. Two explicit modes; neither falls back to the other.
+
+**Integrated (real NARU over the tailnet)** — `docker-compose.yml` alone. `NARU_GRPC_TARGET`,
+`NARUPROF_PROFILE_ID` and the three role tokens are required (blank ⇒ the twin refuses to start):
+
+```powershell
+.\scripts\integrated-up.ps1 -Build    # validates .env/env, docker compose up -d, checks container→NARU route + readiness
+docker compose up -d --force-recreate twin   # after configuration changes (keeps volumes)
+```
+
+**Demo / fixture (bundled fake NARU + test console)** — explicit overlay, separate volumes:
+
+```powershell
+$env:TWIN_STACK_ID='naruprof-fake'
+docker compose -p naruprof-fake -f docker-compose.yml -f docker-compose.fake.yml up -d --build
+```
+
+| Service | Host port | Mode | Role |
+|---|---|---|---|
+| nginx → Ditto 3.9.8 | 127.0.0.1:8090 | both | persisted twin API `/api/2` (Basic auth), never published to the tailnet |
+| twin | `${TWIN_PUBLISH_ADDRESS}:${TWIN_PUBLISH_PORT:-8083}` | both | private summary API, health, status |
+| fake-naru | 127.0.0.1:9092 / 9093 | fake | NARU gRPC feed / control (`/head`, `/commit`, `/delete`) |
+| console | 127.0.0.1:8088 | fake | **browser test console**: live sync state, 9 API tests with explanations, commit/delete/rewind buttons |
+
+In fake mode open **http://127.0.0.1:8088** and click **Run all tests**. The fake NARU keeps its history in memory:
+if its container restarts, NARU "goes back" to revision 3 and the twin correctly reports a
+*restore conflict* (red banner). Click **Accept restore**, or start clean with `docker compose down -v`.
+
+## Run the pieces by hand
 
 ```sh
 scripts/ditto-up.sh                  # private Ditto 3.9.8 on 127.0.0.1:8090 (nginx front only)
@@ -67,8 +100,8 @@ Windows equivalents: `scripts\run-twin.ps1`, `scripts\query-summary.ps1 -Mode ko
 
 | Route | Auth | Result |
 |---|---|---|
-| `GET /internal/v1/profiles/{uuid}/summary` | `Bearer VERTX_TO_TWIN_TOKEN` | 200 six-field JSON · 404 `{"code":"twin_missing"}` · 503 `{"code":"twin_unavailable"}` · 401 · 403 |
-| `GET /internal/health/live`, `/ready` | none (loopback) | 200 / 503 |
+| `GET /internal/v1/profiles/{uuid}/summary` | `Bearer VERTX_TO_TWIN_TOKEN` | 200 six-field JSON · 404 `{"code":"twin_missing"}` · 503 `{"code":"twin_unavailable"}` · 401 · 403 · 400 `invalid_profile_id` · 405 other methods. Native read bounded by `TWIN_DITTO_READ_TIMEOUT` (1.5 s) to fit the 2 s Vert.x deadline |
+| exactly `GET /internal/health/live`, `GET /internal/health/ready` | none (launcher probes; no blanket `/internal/**` exemption) | 200 / 503 |
 | `GET /internal/v1/projection/status` | `Bearer TWIN_MAINTENANCE_TOKEN` | revisions, lag, consumer state, failure class, breaker, counters |
 | `POST /internal/v1/maintenance/profiles/{uuid}/reconcile[?acceptSourceRestore=true]` | maintenance | explicit reconciliation |
 

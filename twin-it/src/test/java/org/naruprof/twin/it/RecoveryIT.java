@@ -126,6 +126,8 @@ class RecoveryIT {
         naru.fake.expireHistoryBelow(p, 5); // revisions <= 4 no longer replayable
         naru.fake.setAvailable(true); // resume Watch(after=3) -> OUT_OF_RANGE -> GetSnapshot(5) -> Watch(after=5)
         await("revision 5", Duration.ofSeconds(30), () -> "5".equals(seq()));
+        // the projector re-subscribes only after confirming the snapshot write: bounded wait, no race
+        await("watch after 5", Duration.ofSeconds(10), () -> naru.fake.watchCursors().contains(5L));
         assertThat(naru.fake.watchCursors()).contains(3L, 5L);
         assertThat(app.status().json().path("counters").path("diagnostic.cursor_out_of_range").asLong()).isPositive();
     }

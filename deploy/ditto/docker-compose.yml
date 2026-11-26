@@ -113,4 +113,4 @@ services:
 
 volumes:
   mongo-data:
-    name: naruprof_ditto_mongo
+    name: ${TWIN_STACK_ID:-naruprof}_ditto_mongo   # isolated test stacks: set TWIN_STACK_ID

@@ -205,7 +205,8 @@ final class DittoItSupport {
         cmd[0] = "docker";
         cmd[1] = "compose";
         cmd[2] = "-p";
-        cmd[3] = "naruprof-ditto";
+        // isolated test stacks: -Dditto.it.project=<name> (with TWIN_STACK_ID set for its volumes)
+        cmd[3] = System.getProperty("ditto.it.project", System.getenv().getOrDefault("DITTO_IT_PROJECT", "naruprof-ditto"));
         System.arraycopy(args, 0, cmd, 4, args.length);
         Process p = new ProcessBuilder(cmd).directory(new File(COMPOSE_DIR)).redirectErrorStream(true).start();
         String out = new String(p.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
@@ -256,6 +257,7 @@ final class DittoItSupport {
             p.put("twin.data-dir", dataDir.toString().replace('\\', '/'));
             p.put("twin.inbound.vertx-token", VERTX_TOKEN);
             p.put("twin.inbound.maintenance-token", MAINT_TOKEN);
+            p.put("twin.naru.mode", "fake"); // in-process fixture publisher on loopback
             p.put("twin.naru.target", naru.target());
             p.put("twin.naru.token", NARU_TOKEN);
             p.put("twin.ditto.api-base", API);

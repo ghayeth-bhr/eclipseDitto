@@ -28,7 +28,10 @@ twin:
     vertx-token: ${VERTX_TO_TWIN_TOKEN:}
     maintenance-token: ${TWIN_MAINTENANCE_TOKEN:}
   naru:
-    target: ${NARU_GRPC_TARGET:127.0.0.1:9092}
+    # integrated (default): real NARU, NARU_GRPC_TARGET required, loopback/fake-naru refused.
+    # fake: bundled fixture publisher, must be chosen explicitly. No default target in either mode.
+    mode: ${TWIN_SOURCE_MODE:integrated}
+    target: ${NARU_GRPC_TARGET:}
     token: ${TWIN_TO_NARU_TOKEN:}
     snapshot-timeout: ${TWIN_NARU_SNAPSHOT_TIMEOUT:5s}
     watch-max-duration: ${TWIN_NARU_WATCH_MAX_DURATION:10m}
@@ -36,8 +39,11 @@ twin:
   ditto:
     api-base: ${DITTO_API_BASE:http://127.0.0.1:8090/api/2}
     subject-issuer: ${TWIN_DITTO_SUBJECT_ISSUER:nginx}
-    connect-timeout: ${TWIN_DITTO_CONNECT_TIMEOUT:2s}
+    connect-timeout: ${TWIN_DITTO_CONNECT_TIMEOUT:1s}
+    # projector/operator writes (long enough for Ditto persistence)
     request-timeout: ${TWIN_DITTO_REQUEST_TIMEOUT:5s}
+    # summary + readiness reads: must fit the Vert.x caller's 2 s summary deadline
+    read-timeout: ${TWIN_DITTO_READ_TIMEOUT:1500ms}
     operator:
       user: ${TWIN_DITTO_OPERATOR_USER:naruprof-twin-operator}
       password: ${TWIN_DITTO_OPERATOR_PASSWORD:}

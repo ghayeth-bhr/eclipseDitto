@@ -5,9 +5,9 @@
 | Dependency | Owner | Where | Notes |
 |---|---|---|---|
 | Ditto 3.9.8 (policies, things, gateway) | this module (vendor binaries) | `deploy/ditto` compose project `naruprof-ditto` | No search, connectivity, UI. Gateway unpublished. |
-| MongoDB 7.0 | Ditto | volume `naruprof_ditto_mongo` | Ditto owns its persistence; the twin never touches it. |
+| MongoDB 7.0 | Ditto | volume `${TWIN_STACK_ID:-naruprof}_ditto_mongo` | Ditto owns its persistence; the twin never touches it. |
 | nginx 1.27 | this module | `127.0.0.1:8090` | Authenticating front; the only Ditto entry point. |
-| NARU `LearningProjection` gRPC | NARU agent | `NARU_GRPC_TARGET` | Fake: `twin-fixture-naru`. |
+| NARU `LearningProjection` gRPC | NARU agent | `NARU_GRPC_TARGET` (required, no default) | Fake: `twin-fixture-naru`, only with explicit `TWIN_SOURCE_MODE=fake`. |
 | H2 file DB | this module | `$TWIN_DATA_DIR/checkpoint/` | Cursor, lifecycle status, lease. Private bookkeeping. |
 
 ## Fresh setup

@@ -23,7 +23,8 @@ import java.util.Map;
  * env NARUPROF_PROFILE_ID   profile to serve (default: contract example id)
  *     TWIN_TO_NARU_TOKEN    expected bearer credential (required)
  *     FAKE_NARU_GRPC_PORT   default 9092
- *     FAKE_NARU_CONTROL_PORT loopback control API, default 9093
+ *     FAKE_NARU_CONTROL_PORT control API, default 9093
+ *     FAKE_NARU_BIND_ADDRESS  default 127.0.0.1 (0.0.0.0 inside a container network)
  *     FAKE_NARU_TRACE       "common" (0..3, default) or "empty" (revision 0 only)
  * control (127.0.0.1 only):
  *     GET  /head
@@ -48,20 +49,21 @@ public final class FakeNaruMain {
         }
         int port = Integer.parseInt(env("FAKE_NARU_GRPC_PORT", "9092"));
         int controlPort = Integer.parseInt(env("FAKE_NARU_CONTROL_PORT", "9093"));
+        InetAddress bind = InetAddress.getByName(env("FAKE_NARU_BIND_ADDRESS", "127.0.0.1"));
         FakeLearningProjection naru = new FakeLearningProjection();
         if ("empty".equals(env("FAKE_NARU_TRACE", "common"))) {
             naru.createProfile(profile);
         } else {
             FixtureTraces.commonTrace(naru, profile);
         }
-        Server server = NettyServerBuilder.forAddress(new InetSocketAddress(InetAddress.getLoopbackAddress(), port))
+        Server server = NettyServerBuilder.forAddress(new InetSocketAddress(bind, port))
                 .addService(ServerInterceptors.intercept(naru, new BearerAuthInterceptor(token)))
                 .build().start();
-        HttpServer control = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), controlPort), 0);
+        HttpServer control = HttpServer.create(new InetSocketAddress(bind, controlPort), 0);
         control.createContext("/", ex -> handle(ex, naru, profile));
         control.start();
-        log.info("fake NARU publisher on 127.0.0.1:{} (control 127.0.0.1:{}), profile {}, head {}",
-                port, controlPort, profile, naru.head(profile));
+        log.info("fake NARU publisher on {}:{} (control {}:{}), profile {}, head {}",
+                bind.getHostAddress(), port, bind.getHostAddress(), controlPort, profile, naru.head(profile));
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             control.stop(0);
             server.shutdown();

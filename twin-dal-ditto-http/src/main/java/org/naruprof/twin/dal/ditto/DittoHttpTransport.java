@@ -66,11 +66,17 @@ public class DittoHttpTransport {
      */
     public Response send(DittoIdentity who, String method, String path, String jsonBody,
                          String conditionHeader, String conditionValue) {
+        return send(who, method, path, jsonBody, conditionHeader, conditionValue, requestTimeout);
+    }
+
+    /** As above with an explicit per-request timeout (short deadline for caller-facing reads). */
+    public Response send(DittoIdentity who, String method, String path, String jsonBody,
+                         String conditionHeader, String conditionValue, Duration timeout) {
         boolean mutating = !"GET".equals(method);
         long started = System.nanoTime();
         try {
             Response r = breaker.executeCheckedSupplier(() -> exchange(who, method, path, jsonBody,
-                    conditionHeader, conditionValue, mutating));
+                    conditionHeader, conditionValue, mutating, timeout));
             log.debug("ditto {} {} as {} -> {} in {}ms", method, path, who.role(), r.status(),
                     (System.nanoTime() - started) / 1_000_000);
             return r;
@@ -86,9 +92,9 @@ public class DittoHttpTransport {
     }
 
     private Response exchange(DittoIdentity who, String method, String path, String jsonBody,
-                              String conditionHeader, String conditionValue, boolean mutating) {
+                              String conditionHeader, String conditionValue, boolean mutating, Duration timeout) {
         HttpRequest.Builder b = HttpRequest.newBuilder(URI.create(apiBase + path))
-                .timeout(requestTimeout)
+                .timeout(timeout)
                 .header("Authorization", who.authorizationHeader())
                 .header("Accept", "application/json");
         if (conditionHeader != null) {

@@ -1,0 +1,7 @@
+# Rendered by the nginx image's entrypoint (envsubst) from the compose environment, so the console
+# uses the same profile id and tokens as the twin (.env). Dev/demo only.
+location = /config.js {
+  default_type application/javascript;
+  add_header Cache-Control no-store;
+  return 200 'window.TWIN_CFG = { profile: "${NARUPROF_PROFILE_ID}", vertx: "${VERTX_TO_TWIN_TOKEN}", maint: "${TWIN_MAINTENANCE_TOKEN}" };';
+}

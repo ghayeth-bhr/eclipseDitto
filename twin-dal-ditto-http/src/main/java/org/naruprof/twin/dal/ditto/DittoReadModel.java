@@ -8,26 +8,32 @@ import org.naruprof.twin.dal.api.TwinStoreException.Kind;
 import org.naruprof.twin.infra.ProfileId;
 import org.naruprof.twin.infra.TwinIds;
 
+import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/** Read-only identity: GET /things/{id}/features/learning/properties only. */
+/**
+ * Read-only identity: GET /things/{id}/features/learning/properties only. Uses the short read
+ * timeout so an unavailable Ditto fails within the summary caller's deadline.
+ */
 public class DittoReadModel implements TwinReadModel {
 
     private final DittoHttpTransport http;
     private final DittoIdentity reader;
     private final ObjectMapper json;
+    private final Duration timeout;
 
-    public DittoReadModel(DittoHttpTransport http, DittoIdentity reader, ObjectMapper json) {
+    public DittoReadModel(DittoHttpTransport http, DittoIdentity reader, ObjectMapper json, Duration timeout) {
         this.http = http;
         this.reader = reader;
         this.json = json;
+        this.timeout = timeout;
     }
 
     @Override
     public LearningRead readLearning(ProfileId profile) {
         String path = DittoPaths.thing(TwinIds.thingId(profile)) + "/features/" + TwinIds.FEATURE + "/properties";
-        DittoHttpTransport.Response r = http.send(reader, "GET", path, null, null, null);
+        DittoHttpTransport.Response r = http.send(reader, "GET", path, null, null, null, timeout);
         switch (r.status()) {
             case 200 -> {
                 try {
@@ -54,7 +60,7 @@ public class DittoReadModel implements TwinReadModel {
 
     @Override
     public void verifyAuthenticated() {
-        DittoHttpTransport.Response r = http.send(reader, "GET", "/whoami", null, null, null);
+        DittoHttpTransport.Response r = http.send(reader, "GET", "/whoami", null, null, null, timeout);
         if (r.status() != 200) {
             throw new TwinStoreException(Kind.INCOMPATIBLE, "whoami returned " + r.status());
         }
